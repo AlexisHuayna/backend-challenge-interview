@@ -1,0 +1,116 @@
+service: backend-challenge
+useDotenv: true
+frameworkVersion: '3'
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-optimize
+
+custom:
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  aws_profile: ${env:AWS_PROFILE_NAME}
+  customer_table: ${env:CUSTOMER_TABLE_NAME, 'customer-table'}
+  readCapacity: 5
+  writeCapacity: 5
+  swapi_host: ${env:SWAPI_HOST, 'swapi.dev'}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${self:custom.stage}
+  region: ${self:custom.region}
+  profile: ${self:custom.aws_profile}
+
+package:
+  patterns:
+    - "!package-lock.json"
+    - "!package.json"
+
+resources:
+  Resources:
+    CustomerDB:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.customer_table}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+        ProvisionedThroughput:
+          ReadCapacityUnits: ${self:custom.readCapacity}
+          WriteCapacityUnits: ${self:custom.writeCapacity}
+
+functions:
+  createCustomer:
+    handler: dist/functions/customers/create.handler
+    events:
+      - http:
+          path: /customers
+          method: post
+          cors: true
+    environment:
+      CUSTOMER_TABLE_NAME: ${self:custom.customer_table}
+    timeout: 15
+  
+  getCustomers:
+    handler: dist/functions/customers/getAll.handler
+    events:
+      - http:
+          path: /customers
+          method: get
+          cors: true
+    environment:
+      CUSTOMER_TABLE_NAME: ${self:custom.customer_table}
+    timeout: 15
+  
+  getFilms:
+    handler: dist/functions/films/getAll.handler
+    events:
+      - http:
+          path: /films
+          method: get
+          cors: true
+    environment:
+      SWAPI_HOST: ${self:custom.swapi_host}
+    timeout: 15
+  
+  getFilm:
+    handler: dist/functions/films/get.handler
+    events:
+      - http:
+          path: /films/{id}
+          method: get
+          cors: true
+    environment:
+      SWAPI_HOST: ${self:custom.swapi_host}
+    timeout: 15
+
+  getStarships:
+    handler: dist/functions/starships/getAll.handler
+    events:
+      - http:
+          path: /starships
+          method: get
+          cors: true
+    environment:
+      SWAPI_HOST: ${self:custom.swapi_host}
+    timeout: 15
+
+  getStarship:
+    handler: dist/functions/starships/get.handler
+    events:
+      - http:
+          path: /starships/{id}
+          method: get
+          cors: true
+    environment:
+      SWAPI_HOST: ${self:custom.swapi_host}
+    timeout: 15
